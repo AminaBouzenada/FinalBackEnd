@@ -1,46 +1,39 @@
-// planning.service.ts — replace your existing findAll with this version
-
 import { Injectable } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
-import { Planning, PlanningDocument } from './planning.shema';
+import { Planning, PlanningDocument } from '../planning/planning.shema'; // ← ton fichier s'appelle .shema
+import { CreatePlanningDto } from '../planning/DTO/create-planning.dto'; // ← ajoute cet import
 
 @Injectable()
 export class PlanningService {
   constructor(@InjectModel(Planning.name) private planningModel: Model<PlanningDocument>) {}
 
-  async create(data: Partial<Planning>): Promise<PlanningDocument> {
-    return this.planningModel.create(data);
+  async savePlanning(entries: CreatePlanningDto[]) {
+    try {
+      console.log('Saving entries:', entries);
+      const result = await this.planningModel.insertMany(entries);
+      console.log('Saved result:', result);
+      return result;
+    } catch (error) {
+      console.error('Error saving planning:', error);
+      throw error;
+    }
   }
 
-  async findAll(query: Record<string, any> = {}): Promise<PlanningDocument[]> {
-    const filter: Record<string, any> = {};
+  async getAll(): Promise<PlanningDocument[]> {
+    return this.planningModel.find().populate('shiftId').populate('empId').exec();
+  }
 
-    if (query.planDate) {
-      // Match the whole day regardless of time component
-      const start = new Date(query.planDate);
-      start.setHours(0, 0, 0, 0);
-      const end = new Date(query.planDate);
-      end.setHours(23, 59, 59, 999);
-      filter.planDate = { $gte: start, $lte: end };
-    }
+  async getById(id: string): Promise<PlanningDocument | null> {
+    return this.planningModel.findById(id).populate('shiftId').populate('empId').exec();
+  }
 
+  async getByFilters(empId: string, shiftId: string, taskId: number): Promise<PlanningDocument[]> {
     return this.planningModel
-      .find(filter)
+      .find({ empId, shiftId, taskId })
       .populate('shiftId')
       .populate('empId')
       .exec();
   }
 
-  async findOne(id: string): Promise<PlanningDocument | null> {
-    return this.planningModel.findById(id).populate('shiftId').populate('empId').exec();
-  }
-
-  async update(id: string, data: Partial<Planning>): Promise<PlanningDocument | null> {
-    return this.planningModel.findByIdAndUpdate(id, data, { new: true }).exec();
-  }
-
-  async remove(id: string): Promise<PlanningDocument | null> {
-    return this.planningModel.findByIdAndDelete(id).exec();
-  }
 }
